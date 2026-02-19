@@ -21,6 +21,7 @@ let multiSel=[];
 // text tool state (declared early to avoid TDZ)
 let textBoxDraft = null;
 let textEdit = null;
+let textPointerDraft = null;
 
 const SVGEL=document.getElementById('svg-canvas');
 const CONT=document.getElementById('svg-content');
@@ -71,7 +72,7 @@ function hex(c){
   const m=cs.match(/\d+/g);if(!m)return'#000000';
   return'#'+m.slice(0,3).map(x=>parseInt(x).toString(16).padStart(2,'0')).join('');
 }
-const TOOL_NAMES={select:'Selecionar',move:'Mover',rect:'Retângulo',rrect:'Ret. Arredondado',ellipse:'Elipse',line:'Linha',polyline:'Polilinha',polygon:'Polígono',star:'Estrela',path:'Lápis',text:'Texto artístico',textbox:'Caixa de texto'};
+const TOOL_NAMES={select:'Selecionar',move:'Mover',rect:'Retângulo',rrect:'Ret. Arredondado',ellipse:'Elipse',line:'Linha',polyline:'Polilinha',polygon:'Polígono',star:'Estrela',path:'Lápis',text:'Texto'};
 
 // ===== TOOLS =====
 function setTool(t){
@@ -79,7 +80,7 @@ function setTool(t){
   tool=t;
   document.querySelectorAll('.t-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tool-'+t)?.classList.add('active');
-  const C={select:'default',move:'grab',rect:'crosshair',rrect:'crosshair',ellipse:'crosshair',line:'crosshair',polyline:'crosshair',polygon:'crosshair',star:'crosshair',path:'crosshair',text:'text',textbox:'text'};
+  const C={select:'default',move:'grab',rect:'crosshair',rrect:'crosshair',ellipse:'crosshair',line:'crosshair',polyline:'crosshair',polygon:'crosshair',star:'crosshair',path:'crosshair',text:'text'};
   SVGEL.style.cursor=C[t]||'default';
   document.getElementById('poly-sec').style.display=(t==='polygon'||t==='star')?'block':'none';
   document.getElementById('st-t').textContent=TOOL_NAMES[t]||t;
@@ -147,10 +148,8 @@ function cwDown(e){
   if(tool==='move'){isPanning=true;SVGEL.style.cursor='grabbing';panMX=e.clientX;panMY=e.clientY;panOX=panX;panOY=panY;return;}
   const sc=svgPt(e);const sx=snp(sc.x),sy=snp(sc.y);
   if(tool==='text'){
-    startPointText(e,sc); return;
-  }
-  if(tool==='textbox'){
-    startTextBoxDraft(e,sc); isDrawing=true; drawEl=null; return;
+    textPointerDraft={x:sc.x,y:sc.y,dragging:false};
+    return;
   }
   if(tool==='polyline'||tool==='polygon'||tool==='star'){
     if(!isDrawing){saveState();polyPts=[sx,sy];isDrawing=true;drawEl=mkSVG('polygon',{points:`${sx},${sy}`,fill:gFill(),stroke:gStroke(),'stroke-width':gStW()});CONT.appendChild(drawEl);}
@@ -182,9 +181,18 @@ function cwMove(e){
   if(isResizing){doResize(e,sc);return;}
   if(isRotating){doRotate(e);return;}
   if(isDragging&&selectedEl){doDrag(e,sc);return;}
-  // text box draft update (does not use drawEl)
-  if(isDrawing && tool==='textbox' && textOverlayMode==='box' && textBoxDraft){
-    updateTextBoxDraft(sc);
+  // text tool: click creates artistic text, drag creates text box
+  if(tool==='text' && textPointerDraft){
+    const dx=sc.x-textPointerDraft.x, dy=sc.y-textPointerDraft.y;
+    if(!textPointerDraft.dragging && Math.hypot(dx,dy)>=4){
+      textPointerDraft.dragging=true;
+      startTextBoxDraft(null,{x:textPointerDraft.x,y:textPointerDraft.y});
+      isDrawing=true;
+      drawEl=null;
+    }
+    if(textPointerDraft.dragging && textOverlayMode==='box' && textBoxDraft){
+      updateTextBoxDraft(sc);
+    }
     return;
   }
   if(!isDrawing||!drawEl)return;
@@ -216,10 +224,16 @@ function cwUp(e){
   if(isResizing){isResizing=false;resizeHandle=null;bboxDS=null;updateLayers();return;}
   if(isRotating){isRotating=false;return;}
   if(isDragging){isDragging=false;clearGuides();updateLayers();return;}
-  // finalize text box draft
-  if(isDrawing && tool==='textbox' && textOverlayMode==='box' && textBoxDraft){
-    isDrawing=false;
-    openTextBoxEditor();
+  // finalize text tool (click or drag-to-box)
+  if(tool==='text' && textPointerDraft){
+    if(textPointerDraft.dragging && isDrawing && textOverlayMode==='box' && textBoxDraft){
+      isDrawing=false;
+      openTextBoxEditor();
+      textPointerDraft=null;
+      return;
+    }
+    startPointText(e,{x:textPointerDraft.x,y:textPointerDraft.y});
+    textPointerDraft=null;
     return;
   }
   if(!isDrawing||!drawEl)return;
@@ -578,7 +592,7 @@ function openTextBoxEditor(){
   const rb=document.getElementById('rubber');
   rb.style.display='none';
 
-  if(w<8 || h<8){ textBoxDraft=null; setTool('textbox'); return; }
+  if(w<8 || h<8){ textBoxDraft=null; return; }
 
   saveState();
 
@@ -600,8 +614,8 @@ function openTextBoxEditor(){
   div.style.boxSizing='border-box';
   div.style.padding='10px';
   div.style.borderRadius='12px';
-  div.style.background='rgba(15,15,18,.30)';
-  div.style.border='1px solid rgba(255,255,255,.10)';
+  div.style.background='transparent';
+  div.style.border='1px dashed rgba(255,255,255,.35)';
   div.style.outline='none';
 
   div.style.fontFamily=ff;
@@ -1231,7 +1245,6 @@ document.addEventListener('keydown',e=>{
   else if(k==='r'||code==='KeyR')setTool('rect');else if(k==='e'||code==='KeyE')setTool('ellipse');
   else if(k==='l'||code==='KeyL')setTool('line');else if(k==='p'||code==='KeyP')setTool('polyline');
   else if(k==='b'||code==='KeyB')setTool('path');else if(k==='t'||code==='KeyT')setTool('text');
-  else if(k==='x'||code==='KeyX')setTool('textbox');
   else if(k==='f')fitCanvas();else if(k==='+'||k==='=')zoomIn();else if(k==='-')zoomOut();
   else if(k==='delete'||k==='backspace'){e.preventDefault();deleteSelected();}
   else if(k==='escape'){finishPoly();finishPath();setTool('select');}
