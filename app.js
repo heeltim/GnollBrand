@@ -79,7 +79,7 @@ function setTool(t){
   tool=t;
   document.querySelectorAll('.t-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tool-'+t)?.classList.add('active');
-  const C={select:'default',move:'grab',rect:'crosshair',rrect:'crosshair',ellipse:'crosshair',line:'crosshair',polyline:'crosshair',polygon:'crosshair',star:'crosshair',path:'crosshair',text:'text',textbox:'crosshair'};
+  const C={select:'default',move:'grab',rect:'crosshair',rrect:'crosshair',ellipse:'crosshair',line:'crosshair',polyline:'crosshair',polygon:'crosshair',star:'crosshair',path:'crosshair',text:'text',textbox:'text'};
   SVGEL.style.cursor=C[t]||'default';
   document.getElementById('poly-sec').style.display=(t==='polygon'||t==='star')?'block':'none';
   document.getElementById('st-t').textContent=TOOL_NAMES[t]||t;
@@ -1210,20 +1210,28 @@ function applyCode(){
 }
 
 // ===== KEYBOARD =====
+function isTypingContext(el){
+  if(!el) return false;
+  if(el.isContentEditable) return true;
+  const t=(el.tagName||'').toUpperCase();
+  return t==='INPUT'||t==='TEXTAREA'||t==='SELECT';
+}
+
 document.addEventListener('keydown',e=>{
-  const t=e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT')return;
-  const k=e.key.toLowerCase();
+  if(isTypingContext(e.target)) return;
+  const k=(e.key||'').toLowerCase();
+  const code=e.code||'';
   if(e.key===' '){
     spacePan=true;
     if(!isPanning && tool!=='move') SVGEL.style.cursor='grab';
     e.preventDefault();
     return;
   }
-  if(k==='v')setTool('select');else if(k==='h')setTool('move');
-  else if(k==='r')setTool('rect');else if(k==='e')setTool('ellipse');
-  else if(k==='l')setTool('line');else if(k==='p')setTool('polyline');
-  else if(k==='b')setTool('path');else if(k==='t')setTool('text');
-  else if(k==='x')setTool('textbox');
+  if(k==='v'||code==='KeyV')setTool('select');else if(k==='h'||code==='KeyH')setTool('move');
+  else if(k==='r'||code==='KeyR')setTool('rect');else if(k==='e'||code==='KeyE')setTool('ellipse');
+  else if(k==='l'||code==='KeyL')setTool('line');else if(k==='p'||code==='KeyP')setTool('polyline');
+  else if(k==='b'||code==='KeyB')setTool('path');else if(k==='t'||code==='KeyT')setTool('text');
+  else if(k==='x'||code==='KeyX')setTool('textbox');
   else if(k==='f')fitCanvas();else if(k==='+'||k==='=')zoomIn();else if(k==='-')zoomOut();
   else if(k==='delete'||k==='backspace'){e.preventDefault();deleteSelected();}
   else if(k==='escape'){finishPoly();finishPath();setTool('select');}
