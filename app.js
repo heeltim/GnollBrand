@@ -135,38 +135,60 @@ function onElMD(e){
   bboxDS={...b};
 }
 
+function beginPan(e){
+  isPanning=true;
+  SVGEL.style.cursor='grabbing';
+  panMX=e.clientX;panMY=e.clientY;panOX=panX;panOY=panY;
+}
+
+function createContinuousShape(sx,sy){
+  if(tool==='path'){
+    pathD=`M ${sx} ${sy}`;
+    drawEl=mkSVG('path',{d:pathD,fill:'none',stroke:gStroke(),'stroke-width':gStW(),'stroke-linecap':'round','stroke-linejoin':'round'});
+  }else{
+    polyPts=[sx,sy];
+    const tag=(tool==='polyline')?'polyline':'polygon';
+    const attrs={points:`${sx},${sy}`,stroke:gStroke(),'stroke-width':gStW()};
+    if(tag==='polyline'){attrs.fill='none';}
+    else{attrs.fill=gFill();}
+    drawEl=mkSVG(tag,attrs);
+  }
+  CONT.appendChild(drawEl);
+}
+
 function cwDown(e){
-  if(e.button===0 && spacePan){
-    isPanning=true;SVGEL.style.cursor='grabbing';
-    panMX=e.clientX;panMY=e.clientY;panOX=panX;panOY=panY;e.preventDefault();return;
+  if((e.button===0 && spacePan) || e.button===1 || (e.button===0&&e.altKey)){
+    beginPan(e);
+    e.preventDefault();
+    return;
   }
-  if(e.button===1||(e.button===0&&e.altKey)){
-    isPanning=true;SVGEL.style.cursor='grabbing';
-    panMX=e.clientX;panMY=e.clientY;panOX=panX;panOY=panY;e.preventDefault();return;
-  }
-  if(tool==='move'){isPanning=true;SVGEL.style.cursor='grabbing';panMX=e.clientX;panMY=e.clientY;panOX=panX;panOY=panY;return;}
-  const sc=svgPt(e);const sx=snp(sc.x),sy=snp(sc.y);
+  if(tool==='move'){beginPan(e);return;}
+
+  const sc=svgPt(e);
+  const sx=snp(sc.x),sy=snp(sc.y);
+
   if(tool==='text'){
     const isBox=!!document.getElementById('tbx-mode')?.checked;
     if(isBox){ startTextBoxDraft(e,sc); isDrawing=true; drawEl=null; return; }
-    startPointText(e,sc); return;
+    startPointText(e,sc);
+    return;
   }
-  if(tool==='polyline'||tool==='polygon'||tool==='star'){
-    if(!isDrawing){saveState();polyPts=[sx,sy];isDrawing=true;drawEl=mkSVG('polygon',{points:`${sx},${sy}`,fill:gFill(),stroke:gStroke(),'stroke-width':gStW()});CONT.appendChild(drawEl);}
+
+  if(tool==='select'){
+    const tgt=e.target;
+    if(tgt===SVGEL||tgt===document.getElementById('bg-rect'))selectEl(null);
+    return;
+  }
+
+  if(tool==='polyline'||tool==='polygon'||tool==='star'||tool==='path'){
+    if(!isDrawing){saveState();isDrawing=true;createContinuousShape(sx,sy);}
+    else if(tool==='path'){pathD+=` L ${sx} ${sy}`;drawEl.setAttribute('d',pathD);}
     else{polyPts.push(sx,sy);drawEl.setAttribute('points',polyPts.join(' '));}
     return;
   }
-  if(tool==='path'){
-    if(!isDrawing){saveState();pathD=`M ${sx} ${sy}`;isDrawing=true;drawEl=mkSVG('path',{d:pathD,fill:'none',stroke:gStroke(),'stroke-width':gStW(),'stroke-linecap':'round','stroke-linejoin':'round'});CONT.appendChild(drawEl);}
-    else{pathD+=` L ${sx} ${sy}`;drawEl.setAttribute('d',pathD);}
-    return;
-  }
-  if(tool==='select'){
-    const tgt=e.target;
-    if(tgt===SVGEL||tgt===document.getElementById('bg-rect')){selectEl(null);}
-    return;
-  }
-  saveState();startX=sx;startY=sy;isDrawing=true;
+
+  saveState();
+  startX=sx;startY=sy;isDrawing=true;
   if(tool==='rect')drawEl=mkSVG('rect',{x:sx,y:sy,width:0,height:0,fill:gFill(),stroke:gStroke(),'stroke-width':gStW()});
   else if(tool==='rrect')drawEl=mkSVG('rect',{x:sx,y:sy,width:0,height:0,rx:10,ry:10,fill:gFill(),stroke:gStroke(),'stroke-width':gStW()});
   else if(tool==='ellipse')drawEl=mkSVG('ellipse',{cx:sx,cy:sy,rx:1,ry:1,fill:gFill(),stroke:gStroke(),'stroke-width':gStW()});
@@ -181,13 +203,11 @@ function cwMove(e){
   if(isResizing){doResize(e,sc);return;}
   if(isRotating){doRotate(e);return;}
   if(isDragging&&selectedEl){doDrag(e,sc);return;}
-  // text box draft update (does not use drawEl)
-  if(isDrawing && tool==='text' && textOverlayMode==='box' && textBoxDraft){
-    updateTextBoxDraft(sc);
-    return;
-  }
+  if(isDrawing && tool==='text' && textOverlayMode==='box' && textBoxDraft){updateTextBoxDraft(sc);return;}
   if(!isDrawing||!drawEl)return;
+
   const sx=snp(sc.x),sy=snp(sc.y),dx=sx-startX,dy=sy-startY;
+
   if(tool==='rect'||tool==='rrect'){
     const sh=e.shiftKey,s=Math.min(Math.abs(dx),Math.abs(dy));
     const x=startX<sx?startX:startX-(sh?s:Math.abs(dx));
@@ -203,24 +223,19 @@ function cwMove(e){
     let ex=sx,ey=sy;
     if(e.shiftKey){const a=Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4);const l=Math.sqrt(dx*dx+dy*dy);ex=startX+l*Math.cos(a);ey=startY+l*Math.sin(a);}
     drawEl.setAttribute('x2',ex);drawEl.setAttribute('y2',ey);
-  }else if((tool==='polyline'||tool==='polygon')&&polyPts.length>=2){
+  }else if((tool==='polyline'||tool==='polygon'||tool==='star')&&polyPts.length>=2){
     drawEl.setAttribute('points',[...polyPts,sx,sy].join(' '));
   }else if(tool==='path'&&pathD){
     drawEl.setAttribute('d',pathD+` L ${sx} ${sy}`);
   }
 }
 
-function cwUp(e){
+function cwUp(){
   if(isPanning){isPanning=false;SVGEL.style.cursor=tool==='move'?'grab':'default';return;}
   if(isResizing){isResizing=false;resizeHandle=null;bboxDS=null;updateLayers();return;}
   if(isRotating){isRotating=false;return;}
   if(isDragging){isDragging=false;clearGuides();updateLayers();return;}
-  // finalize text box draft
-  if(isDrawing && tool==='text' && textOverlayMode==='box' && textBoxDraft){
-    isDrawing=false;
-    openTextBoxEditor();
-    return;
-  }
+  if(isDrawing && tool==='text' && textOverlayMode==='box' && textBoxDraft){isDrawing=false;openTextBoxEditor();return;}
   if(!isDrawing||!drawEl)return;
   if(tool==='polyline'||tool==='polygon'||tool==='star'||tool==='path')return;
   try{const b=drawEl.getBBox();if(b.width<2&&b.height<2){drawEl.remove();undoStack.pop();drawEl=null;isDrawing=false;return;}}catch(e){}
