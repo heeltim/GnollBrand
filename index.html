@@ -12,11 +12,11 @@
 <div id="topbar">
   <div class="logo"><div class="logo-icon">⬡</div>VectoFlow</div>
   <div class="tb-sep"></div>
-  <button class="tb-btn" onclick="newCanvas()">Novo</button>
-  <button class="tb-btn" onclick="openFile()">Abrir</button>
-  <button class="tb-btn" onclick="saveSVG()">💾 SVG</button>
-  <button class="tb-btn" onclick="exportPNG()">📷 PNG</button>
-  <button class="tb-btn" onclick="showCode()">‹/›</button>
+  <button class="tb-btn" title="Novo" onclick="newCanvas()">Novo</button>
+  <button class="tb-btn" title="Abrir" onclick="openFile()">Abrir</button>
+  <button class="tb-btn" title="Salvar SVG" onclick="saveSVG()">💾 SVG</button>
+  <button class="tb-btn" title="Exportar PNG" onclick="exportPNG()">📷 PNG</button>
+  <button class="tb-btn" title="Ver código SVG" onclick="showCode()">‹/›</button>
   <div class="tb-sep"></div>
   <span class="tb-lbl">W</span>
   <input type="number" class="tb-in" id="cw" value="800" onchange="resizeCanvas()">
@@ -54,20 +54,20 @@
     </optgroup>
   </select>
   <div class="tb-sep"></div>
-  <button class="tb-btn" onclick="undo()">↩ Undo</button>
-  <button class="tb-btn" onclick="redo()">↪ Redo</button>
-  <button class="tb-btn" onclick="deleteSelected()">🗑</button>
-  <button class="tb-btn" onclick="duplicateSel()">⧉</button>
+  <button class="tb-btn" title="Desfazer" onclick="undo()">↩ Undo</button>
+  <button class="tb-btn" title="Refazer" onclick="redo()">↪ Redo</button>
+  <button class="tb-btn" title="Excluir selecionado" onclick="deleteSelected()">🗑</button>
+  <button class="tb-btn" title="Duplicar selecionado" onclick="duplicateSel()">⧉</button>
   <div class="tb-sep"></div>
-  <button class="tb-btn" id="snap-tb" onclick="toggleSnap()">⊞ Snap</button>
-  <button class="tb-btn" id="grid-tb" onclick="toggleGridVis()">⊟ Grade</button>
+  <button class="tb-btn" id="snap-tb" title="Ativar/desativar snap" onclick="toggleSnap()">⊞ Snap</button>
+  <button class="tb-btn" id="grid-tb" title="Mostrar/ocultar grade" onclick="toggleGridVis()">⊟ Grade</button>
   <div class="spacer"></div>
-  <button class="tb-btn" onclick="groupSel()">Agrupar</button>
-  <button class="tb-btn" onclick="ungroupSel()">Separar</button>
-  <button class="tb-btn" onclick="bringFront()">↑↑</button>
-  <button class="tb-btn" onclick="sendBack()">↓↓</button>
-  <button class="tb-btn" onclick="bringFwd()">↑</button>
-  <button class="tb-btn" onclick="sendBwd()">↓</button>
+  <button class="tb-btn" title="Agrupar seleção" onclick="groupSel()">Agrupar</button>
+  <button class="tb-btn" title="Desagrupar seleção" onclick="ungroupSel()">Separar</button>
+  <button class="tb-btn" title="Trazer para frente" onclick="bringFront()">↑↑</button>
+  <button class="tb-btn" title="Enviar para trás" onclick="sendBack()">↓↓</button>
+  <button class="tb-btn" title="Avançar uma camada" onclick="bringFwd()">↑</button>
+  <button class="tb-btn" title="Recuar uma camada" onclick="sendBwd()">↓</button>
 </div>
 
 <!-- MAIN -->
@@ -86,7 +86,8 @@
     <button class="t-btn" id="tool-polygon" data-tip="Polígono" onclick="setTool('polygon')">⬡</button>
     <button class="t-btn" id="tool-star" data-tip="Estrela" onclick="setTool('star')">★</button>
     <button class="t-btn" id="tool-path" data-tip="Lápis (B)" onclick="setTool('path')">✏</button>
-    <button class="t-btn" id="tool-text" data-tip="Texto (T)" onclick="setTool('text')">𝐓</button>
+    <button class="t-btn" id="tool-text" data-tip="Texto artístico (T)" title="Texto artístico (T)" onclick="setTool('text')">𝐓</button>
+    <button class="t-btn" id="tool-textbox" data-tip="Caixa de texto (X)" title="Caixa de texto (X)" onclick="setTool('textbox')">▦</button>
     <div class="t-sep"></div>
     <button class="t-btn" data-tip="Inserir imagem" onclick="insertImg()">🖼</button>
     <div class="t-sep"></div>
@@ -128,9 +129,9 @@
     <div id="rubber"></div>
     <textarea id="txtin" onblur="commitText()" onkeydown="txtKey(event)"></textarea>
     <div id="zoom-bar">
-      <button class="z-btn" onclick="zoomOut()">−</button>
+      <button class="z-btn" title="Zoom out" onclick="zoomOut()">−</button>
       <span id="zoom-lbl">100%</span>
-      <button class="z-btn" onclick="zoomIn()">+</button>
+      <button class="z-btn" title="Zoom in" onclick="zoomIn()">+</button>
     </div>
     <div id="coords">x: 0  y: 0</div>
   </div>
@@ -214,11 +215,8 @@
     <!-- Text -->
     <div class="ps" id="text-sec" style="display:none">
       <div class="pt">Tipografia</div>
-            <div class="pr" style="margin-bottom:8px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer">
-          <input type="checkbox" id="tbx-mode" style="accent-color:var(--accent)">
-          Texto em caixa (arraste para definir a área)
-        </label>
+      <div class="pr" style="margin-bottom:8px">
+        <span style="font-size:11px;color:var(--text2)">Use a ferramenta <strong>▦ Caixa de texto</strong> para criar textos com área fixa.</span>
       </div>
       <div class="pr" style="margin-bottom:8px">
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer">

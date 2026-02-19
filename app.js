@@ -71,7 +71,7 @@ function hex(c){
   const m=cs.match(/\d+/g);if(!m)return'#000000';
   return'#'+m.slice(0,3).map(x=>parseInt(x).toString(16).padStart(2,'0')).join('');
 }
-const TOOL_NAMES={select:'Selecionar',move:'Mover',rect:'Retângulo',rrect:'Ret. Arredondado',ellipse:'Elipse',line:'Linha',polyline:'Polilinha',polygon:'Polígono',star:'Estrela',path:'Lápis',text:'Texto'};
+const TOOL_NAMES={select:'Selecionar',move:'Mover',rect:'Retângulo',rrect:'Ret. Arredondado',ellipse:'Elipse',line:'Linha',polyline:'Polilinha',polygon:'Polígono',star:'Estrela',path:'Lápis',text:'Texto artístico',textbox:'Caixa de texto'};
 
 // ===== TOOLS =====
 function setTool(t){
@@ -79,7 +79,7 @@ function setTool(t){
   tool=t;
   document.querySelectorAll('.t-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tool-'+t)?.classList.add('active');
-  const C={select:'default',move:'grab',rect:'crosshair',rrect:'crosshair',ellipse:'crosshair',line:'crosshair',polyline:'crosshair',polygon:'crosshair',star:'crosshair',path:'crosshair',text:'text'};
+  const C={select:'default',move:'grab',rect:'crosshair',rrect:'crosshair',ellipse:'crosshair',line:'crosshair',polyline:'crosshair',polygon:'crosshair',star:'crosshair',path:'crosshair',text:'text',textbox:'crosshair'};
   SVGEL.style.cursor=C[t]||'default';
   document.getElementById('poly-sec').style.display=(t==='polygon'||t==='star')?'block':'none';
   document.getElementById('st-t').textContent=TOOL_NAMES[t]||t;
@@ -147,9 +147,10 @@ function cwDown(e){
   if(tool==='move'){isPanning=true;SVGEL.style.cursor='grabbing';panMX=e.clientX;panMY=e.clientY;panOX=panX;panOY=panY;return;}
   const sc=svgPt(e);const sx=snp(sc.x),sy=snp(sc.y);
   if(tool==='text'){
-    const isBox=!!document.getElementById('tbx-mode')?.checked;
-    if(isBox){ startTextBoxDraft(e,sc); isDrawing=true; drawEl=null; return; }
     startPointText(e,sc); return;
+  }
+  if(tool==='textbox'){
+    startTextBoxDraft(e,sc); isDrawing=true; drawEl=null; return;
   }
   if(tool==='polyline'||tool==='polygon'||tool==='star'){
     if(!isDrawing){saveState();polyPts=[sx,sy];isDrawing=true;drawEl=mkSVG('polygon',{points:`${sx},${sy}`,fill:gFill(),stroke:gStroke(),'stroke-width':gStW()});CONT.appendChild(drawEl);}
@@ -182,7 +183,7 @@ function cwMove(e){
   if(isRotating){doRotate(e);return;}
   if(isDragging&&selectedEl){doDrag(e,sc);return;}
   // text box draft update (does not use drawEl)
-  if(isDrawing && tool==='text' && textOverlayMode==='box' && textBoxDraft){
+  if(isDrawing && tool==='textbox' && textOverlayMode==='box' && textBoxDraft){
     updateTextBoxDraft(sc);
     return;
   }
@@ -216,7 +217,7 @@ function cwUp(e){
   if(isRotating){isRotating=false;return;}
   if(isDragging){isDragging=false;clearGuides();updateLayers();return;}
   // finalize text box draft
-  if(isDrawing && tool==='text' && textOverlayMode==='box' && textBoxDraft){
+  if(isDrawing && tool==='textbox' && textOverlayMode==='box' && textBoxDraft){
     isDrawing=false;
     openTextBoxEditor();
     return;
@@ -568,7 +569,7 @@ function openTextBoxEditor(){
   const rb=document.getElementById('rubber');
   rb.style.display='none';
 
-  if(w<8 || h<8){ textBoxDraft=null; setTool('text'); return; }
+  if(w<8 || h<8){ textBoxDraft=null; setTool('textbox'); return; }
 
   saveState();
 
@@ -1000,12 +1001,26 @@ function applyRot(){if(!selectedEl)return;setRotDeg(selectedEl,parseFloat(docume
 function applyRx(){if(!selectedEl)return;const v=parseFloat(document.getElementById('prx').value)||0;if(selectedEl.tagName==='rect'){selectedEl.setAttribute('rx',v);selectedEl.setAttribute('ry',v);}}
 function applyOp(){const v=document.getElementById('pop').value;document.getElementById('popv').textContent=Math.round(v*100)+'%';if(selectedEl)selectedEl.setAttribute('opacity',v);}
 function applyText(){
-  if(!selectedEl||selectedEl.tagName!=='text')return;
-  selectedEl.setAttribute('font-family',document.getElementById('tff').value);
-  selectedEl.setAttribute('font-size',document.getElementById('tfs').value);
-  selectedEl.setAttribute('font-weight',document.getElementById('tfw').value);
-  selectedEl.setAttribute('letter-spacing',document.getElementById('tls').value);
-  selectedEl.setAttribute('text-anchor',document.getElementById('tta').value);
+  if(!selectedEl)return;
+  if(selectedEl.tagName==='text'){
+    selectedEl.setAttribute('font-family',document.getElementById('tff').value);
+    selectedEl.setAttribute('font-size',document.getElementById('tfs').value);
+    selectedEl.setAttribute('font-weight',document.getElementById('tfw').value);
+    selectedEl.setAttribute('letter-spacing',document.getElementById('tls').value);
+    selectedEl.setAttribute('text-anchor',document.getElementById('tta').value);
+    return;
+  }
+  if(selectedEl.tagName==='foreignObject'){
+    const div=selectedEl.querySelector('div');
+    if(!div)return;
+    div.style.fontFamily=document.getElementById('tff').value;
+    div.style.fontSize=(document.getElementById('tfs').value||16)+'px';
+    div.style.fontWeight=document.getElementById('tfw').value;
+    div.style.letterSpacing=(document.getElementById('tls').value||0)+'px';
+    const ta=document.getElementById('tta').value;
+    div.style.textAlign=(ta==='middle'?'center':(ta==='end'?'right':'left'));
+    updateTX();
+  }
 }
 
 // ===== FLIP/ROTATE =====
@@ -1102,8 +1117,9 @@ function refreshProps(){
   const fo=parseFloat(el.getAttribute('fill-opacity')||'1');
   document.getElementById('fo').value=fo;document.getElementById('fov').textContent=Math.round(fo*100)+'%';
   document.getElementById('prot').value=Math.round(getRotDeg(el));
-  document.getElementById('text-sec').style.display=el.tagName==='text'?'block':'none';
+  document.getElementById('text-sec').style.display=(el.tagName==='text'||el.tagName==='foreignObject')?'block':'none';
   if(el.tagName==='text'){
+
     document.getElementById('tff').value=el.getAttribute('font-family')||'Arial';
     document.getElementById('tfs').value=el.getAttribute('font-size')||'16';
     document.getElementById('tfw').value=el.getAttribute('font-weight')||'normal';
@@ -1189,6 +1205,7 @@ document.addEventListener('keydown',e=>{
   else if(k==='r')setTool('rect');else if(k==='e')setTool('ellipse');
   else if(k==='l')setTool('line');else if(k==='p')setTool('polyline');
   else if(k==='b')setTool('path');else if(k==='t')setTool('text');
+  else if(k==='x')setTool('textbox');
   else if(k==='f')fitCanvas();else if(k==='+'||k==='=')zoomIn();else if(k==='-')zoomOut();
   else if(k==='delete'||k==='backspace'){e.preventDefault();deleteSelected();}
   else if(k==='escape'){finishPoly();finishPath();setTool('select');}
@@ -1216,8 +1233,24 @@ document.addEventListener('mouseup',()=>{
   if(isPanning){isPanning=false;if(tool!=='move')SVGEL.style.cursor='default';}
 });
 
+
+function initToolTitles(){
+  document.querySelectorAll('.t-btn').forEach(btn=>{
+    if(!btn.title){
+      const tip=btn.getAttribute('data-tip');
+      if(tip) btn.title=tip;
+    }
+  });
+  document.querySelectorAll('.tb-btn').forEach(btn=>{
+    if(!btn.title){
+      const label=(btn.textContent||'').trim();
+      if(label) btn.title=label;
+    }
+  });
+}
 // ===== INIT =====
 resizeCanvas();
+initToolTitles();
 setTimeout(()=>{
   fitCanvas();
   // Demo
