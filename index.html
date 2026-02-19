@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VectoFlow — SVG Editor</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo"><div class="logo-icon">⬡</div>VectoFlow</div>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="newCanvas()">Novo</button>
+  <button class="tb-btn" onclick="openFile()">Abrir</button>
+  <button class="tb-btn" onclick="saveSVG()">💾 SVG</button>
+  <button class="tb-btn" onclick="exportPNG()">📷 PNG</button>
+  <button class="tb-btn" onclick="showCode()">‹/›</button>
+  <div class="tb-sep"></div>
+  <span class="tb-lbl">W</span>
+  <input type="number" class="tb-in" id="cw" value="800" onchange="resizeCanvas()">
+  <span class="tb-lbl">H</span>
+  <input type="number" class="tb-in" id="ch" value="600" onchange="resizeCanvas()">
+  <select class="tb-sel" onchange="applyPreset(this.value);this.value=''">
+    <option value="">— Preset —</option>
+    <optgroup label="📱 Mobile">
+      <option value="390,844">iPhone 15 (390×844)</option>
+      <option value="360,800">Android (360×800)</option>
+      <option value="428,926">iPhone 14 Max</option>
+    </optgroup>
+    <optgroup label="🖥 Web">
+      <option value="1440,900">Desktop FHD</option>
+      <option value="1280,800">Laptop</option>
+      <option value="768,1024">iPad</option>
+    </optgroup>
+    <optgroup label="📣 Social">
+      <option value="1080,1080">Instagram Post</option>
+      <option value="1200,628">OG / Twitter</option>
+      <option value="1080,1920">Story / Reel</option>
+      <option value="1500,500">Twitter Banner</option>
+    </optgroup>
+    <optgroup label="🖨 Print">
+      <option value="2480,3508">A4 300dpi</option>
+      <option value="3508,2480">A4 Landscape</option>
+      <option value="1191,842">A4 72dpi</option>
+      <option value="2550,3300">Letter 300dpi</option>
+    </optgroup>
+    <optgroup label="🎨 Icons">
+      <option value="16,16">16×16</option>
+      <option value="32,32">32×32</option>
+      <option value="64,64">64×64</option>
+      <option value="512,512">512×512</option>
+    </optgroup>
+  </select>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="undo()">↩ Undo</button>
+  <button class="tb-btn" onclick="redo()">↪ Redo</button>
+  <button class="tb-btn" onclick="deleteSelected()">🗑</button>
+  <button class="tb-btn" onclick="duplicateSel()">⧉</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="snap-tb" onclick="toggleSnap()">⊞ Snap</button>
+  <button class="tb-btn" id="grid-tb" onclick="toggleGridVis()">⊟ Grade</button>
+  <div class="spacer"></div>
+  <button class="tb-btn" onclick="groupSel()">Agrupar</button>
+  <button class="tb-btn" onclick="ungroupSel()">Separar</button>
+  <button class="tb-btn" onclick="bringFront()">↑↑</button>
+  <button class="tb-btn" onclick="sendBack()">↓↓</button>
+  <button class="tb-btn" onclick="bringFwd()">↑</button>
+  <button class="tb-btn" onclick="sendBwd()">↓</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="toolbar">
+    <button class="t-btn active" id="tool-select" data-tip="Selecionar (V)" onclick="setTool('select')">
+      <svg width="13" height="15" viewBox="0 0 13 15"><path d="M1.5 1v11.5L4.5 9.5l2 5 1.8-.9-2-5H13L1.5 1z" fill="currentColor"/></svg>
+    </button>
+    <button class="t-btn" id="tool-move" data-tip="Mover canvas (H)" onclick="setTool('move')">✥</button>
+    <div class="t-sep"></div>
+    <button class="t-btn" id="tool-rect" data-tip="Retângulo (R)" onclick="setTool('rect')">▭</button>
+    <button class="t-btn" id="tool-rrect" data-tip="Ret. arredondado" onclick="setTool('rrect')">▬</button>
+    <button class="t-btn" id="tool-ellipse" data-tip="Elipse (E)" onclick="setTool('ellipse')">⬭</button>
+    <button class="t-btn" id="tool-line" data-tip="Linha (L)" onclick="setTool('line')">╱</button>
+    <button class="t-btn" id="tool-polyline" data-tip="Polilinha (P)" onclick="setTool('polyline')">⌒</button>
+    <button class="t-btn" id="tool-polygon" data-tip="Polígono" onclick="setTool('polygon')">⬡</button>
+    <button class="t-btn" id="tool-star" data-tip="Estrela" onclick="setTool('star')">★</button>
+    <button class="t-btn" id="tool-path" data-tip="Lápis (B)" onclick="setTool('path')">✏</button>
+    <button class="t-btn" id="tool-text" data-tip="Texto (T)" onclick="setTool('text')">𝐓</button>
+    <div class="t-sep"></div>
+    <button class="t-btn" data-tip="Inserir imagem" onclick="insertImg()">🖼</button>
+    <div class="t-sep"></div>
+    <button class="t-btn" data-tip="Zoom in (+)" onclick="zoomIn()">⊕</button>
+    <button class="t-btn" data-tip="Zoom out (-)" onclick="zoomOut()">⊖</button>
+    <button class="t-btn" data-tip="Ajustar (F)" onclick="fitCanvas()">⊡</button>
+    <button class="t-btn" data-tip="100%" onclick="zoom=1;panX=0;panY=0;updateVP()">①</button>
+    <div class="t-sep"></div>
+    <button class="t-btn" data-tip="Flip H" onclick="flipH()">⇄</button>
+    <button class="t-btn" data-tip="Flip V" onclick="flipV()">⇅</button>
+    <button class="t-btn" data-tip="Rot 90°" onclick="rot90(1)">↻</button>
+    <button class="t-btn" data-tip="Rot -90°" onclick="rot90(-1)">↺</button>
+    <div class="t-sep"></div>
+    <button class="t-btn" data-tip="Alinhar esquerda" onclick="alignL()">⬤⃝</button>
+    <button class="t-btn" data-tip="Centralizar H" onclick="alignCH()">⊙</button>
+    <button class="t-btn" data-tip="Alinhar direita" onclick="alignR()">⃝⬤</button>
+    <button class="t-btn" data-tip="Alinhar topo" onclick="alignT()">⬆</button>
+    <button class="t-btn" data-tip="Centralizar V" onclick="alignCV()">↕</button>
+    <button class="t-btn" data-tip="Alinhar baixo" onclick="alignB()">⬇</button>
+  </div>
+
+  <!-- CANVAS -->
+  <div id="canvas-wrap"
+    onmousedown="cwDown(event)"
+    onmousemove="cwMove(event)"
+    onmouseup="cwUp(event)"
+    onwheel="cwWheel(event)"
+    ondblclick="cwDbl(event)"
+    oncontextmenu="return false">
+    <div id="canvas-viewport">
+      <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg" width="800" height="600">
+        <defs id="svg-defs"></defs>
+        <rect id="bg-rect" width="800" height="600" fill="white"/>
+        <g id="svg-content"></g>
+      </svg>
+    </div>
+    <svg id="txsvg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <svg id="guidsvg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="rubber"></div>
+    <textarea id="txtin" onblur="commitText()" onkeydown="txtKey(event)"></textarea>
+    <div id="zoom-bar">
+      <button class="z-btn" onclick="zoomOut()">−</button>
+      <span id="zoom-lbl">100%</span>
+      <button class="z-btn" onclick="zoomIn()">+</button>
+    </div>
+    <div id="coords">x: 0  y: 0</div>
+  </div>
+
+  <!-- PROPS -->
+  <div id="props">
+    <!-- Fill -->
+    <div class="ps">
+      <div class="pt">Preenchimento</div>
+      <div class="crow">
+        <div class="csw" id="fill-sw" style="background:#4a90e2"><input type="color" id="fc" value="#4a90e2" oninput="applyFill()"></div>
+        <button class="cnone" onclick="setFillNone()">Nenhum</button>
+        <span class="cv" id="fv">#4a90e2</span>
+      </div>
+      <div class="pr">
+        <span class="pl">Opacidade</span>
+        <input type="range" class="pi" id="fo" min="0" max="1" step=".01" value="1" oninput="applyFO()">
+        <span id="fov" style="font-size:10px;color:var(--text2);font-family:var(--font-mono);width:28px">100%</span>
+      </div>
+      <div class="gtype">
+        <div class="gtb on" id="g-none" onclick="setGrad('none')">Sólido</div>
+        <div class="gtb" id="g-lin" onclick="setGrad('linear')">Linear</div>
+        <div class="gtb" id="g-rad" onclick="setGrad('radial')">Radial</div>
+      </div>
+      <div id="grad-ui" style="display:none">
+        <div class="gstop"><input type="color" id="g1c" value="#4a90e2" oninput="applyGrad()"><input type="range" id="g1p" min="0" max="100" value="0" oninput="applyGrad()"></div>
+        <div class="gstop"><input type="color" id="g2c" value="#e85d8a" oninput="applyGrad()"><input type="range" id="g2p" min="0" max="100" value="100" oninput="applyGrad()"></div>
+        <div class="pr"><span class="pl">Ângulo</span><input type="number" class="pi" id="gang" value="90" oninput="applyGrad()">°</div>
+      </div>
+    </div>
+
+    <!-- Stroke -->
+    <div class="ps">
+      <div class="pt">Contorno</div>
+      <div class="crow">
+        <div class="csw" id="stk-sw" style="background:#111;border:2px solid #444"><input type="color" id="sc" value="#111111" oninput="applyStroke()"></div>
+        <button class="cnone" onclick="setStrokeNone()">Nenhum</button>
+        <span class="cv" id="sv">#111111</span>
+      </div>
+      <div class="pr"><span class="pl">Largura</span><input type="number" class="pi" id="sw" value="1" min="0" step=".5" oninput="applyStW()"></div>
+      <div class="pr"><span class="pl">Estilo</span>
+        <select class="pi" id="sd" onchange="applyDash()">
+          <option value="">Sólido</option><option value="4,4">Traço</option>
+          <option value="2,3">Ponto</option><option value="8,4,2,4">Misto</option>
+        </select>
+      </div>
+      <div class="pr"><span class="pl">Cap</span>
+        <select class="pi" id="scap" onchange="applyCap()">
+          <option>butt</option><option>round</option><option>square</option>
+        </select>
+      </div>
+      <div class="pr"><span class="pl">Join</span>
+        <select class="pi" id="sjoin" onchange="applyJoin()">
+          <option>miter</option><option>round</option><option>bevel</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Transform -->
+    <div class="ps">
+      <div class="pt">Transformação</div>
+      <div class="g2">
+        <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;font-family:var(--font-mono)">X</div><input type="number" class="pi" id="px" oninput="applyXY()"></div>
+        <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;font-family:var(--font-mono)">Y</div><input type="number" class="pi" id="py" oninput="applyXY()"></div>
+        <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;font-family:var(--font-mono)">W</div><input type="number" class="pi" id="pw" oninput="applyWH()"></div>
+        <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;font-family:var(--font-mono)">H</div><input type="number" class="pi" id="ph" oninput="applyWH()"></div>
+      </div>
+      <div class="pr"><span class="pl">Rotação</span><input type="number" class="pi" id="prot" value="0" oninput="applyRot()"><span style="font-size:10px;color:var(--text2);margin-left:2px">°</span></div>
+      <div class="pr"><span class="pl">Raio</span><input type="number" class="pi" id="prx" value="0" min="0" oninput="applyRx()"></div>
+      <div class="pr"><span class="pl">Opacidade</span><input type="range" class="pi" id="pop" min="0" max="1" step=".01" value="1" oninput="applyOp()">
+        <span id="popv" style="font-size:10px;color:var(--text2);font-family:var(--font-mono);width:28px">100%</span></div>
+      <div class="g4">
+        <button class="ib" onclick="flipH()" title="Flip H">⇄</button>
+        <button class="ib" onclick="flipV()" title="Flip V">⇅</button>
+        <button class="ib" onclick="rot90(1)" title="+90°">↻</button>
+        <button class="ib" onclick="rot90(-1)" title="-90°">↺</button>
+      </div>
+      <div class="pr" style="margin-top:2px"><input type="checkbox" id="lock-r" style="margin-right:5px"><span style="font-size:11px;color:var(--text2)">Travar proporção</span></div>
+    </div>
+
+    <!-- Text -->
+    <div class="ps" id="text-sec" style="display:none">
+      <div class="pt">Tipografia</div>
+            <div class="pr" style="margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer">
+          <input type="checkbox" id="tbx-mode" style="accent-color:var(--accent)">
+          Texto em caixa (arraste para definir a área)
+        </label>
+      </div>
+      <div class="pr" style="margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer">
+          <input type="checkbox" id="tdecor-mode" style="accent-color:var(--accent2)">
+          Texto decorativo (com fundo)
+        </label>
+      </div>
+<div class="pr"><span class="pl">Fonte</span>
+        <select class="pi" id="tff" onchange="applyText()">
+          <option>Arial</option><option>Georgia</option><option>Times New Roman</option>
+          <option>Courier New</option><option>Verdana</option><option>Impact</option>
+          <option>Trebuchet MS</option><option>Palatino</option>
+        </select>
+      </div>
+      <div class="pr"><span class="pl">Tamanho</span><input type="number" class="pi" id="tfs" value="16" oninput="applyText()"></div>
+      <div class="pr"><span class="pl">Peso</span>
+        <select class="pi" id="tfw" onchange="applyText()">
+          <option value="300">Light</option><option value="normal">Normal</option>
+          <option value="600">Semi</option><option value="bold">Bold</option><option value="900">Black</option>
+        </select>
+      </div>
+      <div class="pr"><span class="pl">Espaço</span><input type="number" class="pi" id="tls" value="0" step="0.5" oninput="applyText()"></div>
+      <div class="pr"><span class="pl">Alinha</span>
+        <select class="pi" id="tta" onchange="applyText()">
+          <option value="start">Esquerda</option><option value="middle">Centro</option><option value="end">Direita</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Grid/Snap -->
+    <div class="ps">
+      <div class="pt">Grade & Snap</div>
+      <div class="pr"><span class="pl">Tamanho</span><input type="number" class="pi" id="gs" value="8" min="1" onchange="gridSize=parseInt(this.value)||8"></div>
+      <div class="pr"><input type="checkbox" id="snap-cb" checked onchange="snapOn=this.checked" style="margin-right:5px"><span style="font-size:11px;color:var(--text2)">Snap ativo</span></div>
+      <div class="pr"><input type="checkbox" id="grid-cb" onchange="toggleGridVis()" style="margin-right:5px"><span style="font-size:11px;color:var(--text2)">Mostrar grade</span></div>
+      <div class="pr"><input type="checkbox" id="guides-cb" checked style="margin-right:5px"><span style="font-size:11px;color:var(--text2)">Guias inteligentes</span></div>
+    </div>
+
+    <!-- Poly settings -->
+    <div class="ps" id="poly-sec" style="display:none">
+      <div class="pt">Polígono / Estrela</div>
+      <div class="pr"><span class="pl">Lados</span><input type="number" class="pi" id="poly-n" value="6" min="3" max="32"></div>
+      <div class="pr"><span class="pl">Inner r.</span><input type="number" class="pi" id="star-r" value="0.45" min="0.1" max="0.95" step="0.05"></div>
+    </div>
+
+    <!-- Layers -->
+    <div class="ps" style="flex:1;min-height:120px">
+      <div class="pt" style="display:flex;justify-content:space-between;align-items:center">
+        Camadas
+        <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px" onclick="flipLayers()">⇅</button>
+      </div>
+      <div id="layers-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS -->
+<div id="statusbar">
+  Ferramenta: <em id="st-t">Selecionar</em>
+  &nbsp;·&nbsp; Objetos: <em id="st-n">0</em>
+  &nbsp;·&nbsp; Selecionado: <em id="st-s">—</em>
+  &nbsp;·&nbsp; Canvas: <em id="st-c">800×600</em>
+</div>
+
+<!-- CODE MODAL -->
+<div class="mbg" id="code-modal">
+  <div class="modal">
+    <h3>Código SVG</h3>
+    <textarea id="code-ta" spellcheck="false"></textarea>
+    <div class="mbtns">
+      <button class="bs" onclick="applyCode()">Aplicar</button>
+      <button class="bs" onclick="navigator.clipboard.writeText(document.getElementById('code-ta').value)">Copiar</button>
+      <button class="bp" onclick="document.getElementById('code-modal').classList.remove('show')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<input class="hidden-in" type="file" id="fi-svg" accept=".svg" onchange="loadSVG(event)">
+<input class="hidden-in" type="file" id="fi-img" accept="image/*" onchange="loadImg(event)">
+
+<script src="app.js"></script>
+</body>
+</html>
