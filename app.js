@@ -416,6 +416,15 @@ function _bindArtEdit(fo, div, textEl){
       _endTextEdit(true);
     }
   });
+  div.addEventListener('blur', ()=>{
+    if(!textEdit || textEdit.div!==div) return;
+    setTimeout(()=>{
+      if(!textEdit || textEdit.div!==div) return;
+      const ae=document.activeElement;
+      if(ae===div || div.contains(ae)) return;
+      _endTextEdit(true);
+    },0);
+  });
   // first paint
   updateLive();
 }
@@ -468,15 +477,15 @@ function _startArtisticTextAt(sc, existingTextEl=null){
   div.setAttribute('contenteditable','true');
   div.spellcheck=false;
 
-  // Visual: looks like you're typing on the page, not in an old popup box
+  // Visual: free text directly on canvas
   div.style.width='100%';
   div.style.height='100%';
-  div.style.padding='8px 10px';
+  div.style.padding='2px 4px';
   div.style.boxSizing='border-box';
-  div.style.borderRadius='10px';
-  div.style.background='rgba(15,15,18,.72)';
-  div.style.border='1px solid rgba(255,255,255,.14)';
-  div.style.backdropFilter='blur(10px)';
+  div.style.borderRadius='4px';
+  div.style.background='transparent';
+  div.style.border='1px dashed rgba(255,255,255,.35)';
+  div.style.backdropFilter='none';
   div.style.outline='none';
   div.style.color=textEl.getAttribute('fill')||gFill();
   div.style.fontFamily=ff;
@@ -625,6 +634,15 @@ function openTextBoxEditor(){
     requestAnimationFrame(()=>{ if(selectedEl===fo) updateTX(); });
   });
   div.addEventListener('input',()=>requestAnimationFrame(()=>{ if(selectedEl===fo) updateTX(); }));
+  div.addEventListener('blur', ()=>{
+    if(!textEdit || textEdit.div!==div) return;
+    setTimeout(()=>{
+      if(!textEdit || textEdit.div!==div) return;
+      const ae=document.activeElement;
+      if(ae===div || div.contains(ae)) return;
+      _endTextEdit(true);
+    },0);
+  });
 
   setTimeout(()=>{ try{div.focus();}catch(_e){} },0);
 
