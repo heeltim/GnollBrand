@@ -33,6 +33,8 @@ body{font-family:var(--font-ui);background:var(--bg);color:var(--text);height:10
 .t-btn{width:36px;height:36px;border:none;background:none;color:var(--text2);border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:.12s;position:relative;}
 .t-btn:hover{background:var(--panel2);color:var(--text);}
 .t-btn.active{background:var(--accent);color:#fff;}
+
+.tool-glyph{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.2px;line-height:1;}
 .t-btn[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);background:#0d0d14;color:var(--text);padding:4px 8px;border-radius:5px;font-size:11px;white-space:nowrap;z-index:999;border:1px solid var(--border);pointer-events:none;font-family:var(--font-ui);}
 .t-sep{width:24px;height:1px;background:var(--border);margin:3px 0;}
 
