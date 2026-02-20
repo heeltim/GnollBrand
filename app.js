@@ -303,23 +303,7 @@ function cwUp(e){
 function cwDbl(e){
   if(tool==='polyline'||tool==='polygon'||tool==='star')finishPoly();
   else if(tool==='path')finishPath();
-  // Double click to edit text (in-canvas)
-  if(tool==='select'&&selectedEl){
-    if(selectedEl.tagName==='text'){
-      startEditText(selectedEl,e);
-    } else if(selectedEl.tagName==='foreignObject'){
-      const div=selectedEl.querySelector('div');
-      if(div){
-        // enable edit mode inside the SVG box
-        textEdit={kind:'box',isNew:false,el:selectedEl,fo:null,div,prevText:div.textContent||'',prevVisibility:''};
-        div.contentEditable='true';
-        div.setAttribute('contenteditable','true');
-        div.style.outline='none';
-        setTool('select');
-        setTimeout(()=>{ try{div.focus();}catch(_e){} },0);
-      }
-    }
-  }
+  if(tool==='select'&&selectedEl&&(selectedEl.tagName==='text'||selectedEl.tagName==='foreignObject')) startEditText(selectedEl,e);
 }
 
 function cwWheel(e){
@@ -372,7 +356,6 @@ function makeStar(el){
 
 // ===== TEXT =====
 let textOverlayMode = null; // 'point' | 'box' | 'edit'
-let _editingHiddenEl = null;
 
 function _screenFromSvg(x,y){
   const svgr=SVGEL.getBoundingClientRect();
@@ -381,357 +364,192 @@ function _screenFromSvg(x,y){
 }
 function _fontPx(){ return (parseInt(document.getElementById('tfs').value)||16) * zoom; }
 
-function startText(e, sc){
-  // keeps backward-compat for older calls (point text)
-  startPointText(e, sc);
-}
-
-/* ===== TEXT TOOL (rewritten for in-canvas typing) =====
-   Goals:
-   - Artistic text: click -> caret in canvas -> type. Edit via double-click in Select.
-   - Text box: drag to define area -> caret inside box -> type and wrap.
-   - No external textarea popup (kept in DOM for backward compat but unused).
-*/
-
-
-function _ensureMeasureText(){
-  let mt=document.getElementById('vf-measure-text');
-  if(mt) return mt;
-  mt=mkSVG('text',{id:'vf-measure-text',x:-99999,y:-99999,opacity:0});
-  document.getElementById('svg-defs').appendChild(mt);
-  return mt;
-}
-function _measureTextBBox(str, ff, fs, fw, ls){
-  const mt=_ensureMeasureText();
-  mt.setAttribute('font-family',ff);
-  mt.setAttribute('font-size',fs);
-  mt.setAttribute('font-weight',fw);
-  mt.setAttribute('letter-spacing',ls);
-  mt.textContent=str||'';
-  try{ return mt.getBBox(); }catch(e){ return {x:0,y:0,width:0,height:0}; }
-}
-function _endTextEdit(commit){
-  if(!textEdit) return;
-  const {kind,isNew,el,fo,div,prevText,prevVisibility}=textEdit;
-
-  if(kind==='art'){
-    const textEl=el;
-    const cur = (div?.innerText ?? '').replace(/\r?\n/g,' ').trim();
-    if(!commit){
-      // cancel
-      if(isNew){ textEl.remove(); }
-      else { textEl.textContent = prevText; textEl.style.visibility = prevVisibility; }
-    }else{
-      if(!cur){
-        if(isNew) textEl.remove();
-        else textEl.textContent = '';
-      }else{
-        textEl.textContent = cur;
-        textEl.style.visibility = prevVisibility || 'visible';
-      }
-    }
-    if(fo) fo.remove();
-    textEdit=null;
-    updateLayers();
-    if(textEl.isConnected){ selectEl(textEl); refreshProps(); }
-    setTool('select');
-    return;
-  }
-
-  if(kind==='box'){
-    const foEl=el; // foreignObject
-    const boxDiv=div || (foEl.querySelector('div')||null);
-    if(boxDiv){
-      const cur = (boxDiv.innerText ?? '').replace(/\r?\n/g,'\n').trim();
-      if(!commit && isNew){
-        foEl.remove();
-      }else{
-        // keep text; just stop editing
-        boxDiv.contentEditable='false';
-        boxDiv.setAttribute('contenteditable','false');
-        boxDiv.style.outline='none';
-        // if cleared, keep empty but box remains (useful for layouts)
-        boxDiv.textContent = cur;
-      }
-    }
-    textEdit=null;
-    updateLayers();
-    if(foEl.isConnected){ selectEl(foEl); refreshProps(); }
-    setTool('select');
-    return;
-  }
-}
-
-function _bindArtEdit(fo, div, textEl){
-  // Live update -> keep bbox and transform handles in sync
-  const ff=textEl.getAttribute('font-family')||document.getElementById('tff').value;
-  const fs=parseFloat(textEl.getAttribute('font-size')||document.getElementById('tfs').value||16);
-  const fw=textEl.getAttribute('font-weight')||document.getElementById('tfw').value;
-  const ls=parseFloat(textEl.getAttribute('letter-spacing')||document.getElementById('tls').value||0);
-
-  const updateLive=()=>{
-    const v=(div.innerText||'').replace(/\r?\n/g,' ').trim();
-    textEl.textContent=v;
-    // resize fo to fit
-    const bb=_measureTextBBox(v||' ',ff,fs,fw,ls);
-    fo.setAttribute('width', Math.max(60, bb.width + 24));
-    fo.setAttribute('height', Math.max(28, bb.height + 18));
-    // selection box refresh
-    requestAnimationFrame(()=>{ if(selectedEl===textEl) updateTX(); });
-  };
-
-  div.addEventListener('input', updateLive);
-  div.addEventListener('keydown', (e)=>{
-    if(e.key==='Escape'){ e.preventDefault(); _endTextEdit(false); }
-    if(e.key==='Enter' && !e.shiftKey){
-      e.preventDefault();
-      _endTextEdit(true);
-    }
+function _makeTextLines(el, text){
+  const lines=(text||'').split(/\r?\n/);
+  const x=parseFloat(el.getAttribute('x')||0);
+  const y=parseFloat(el.getAttribute('y')||0);
+  const fs=parseFloat(el.getAttribute('font-size')||16);
+  const lineH=Math.max(1.2,parseFloat(el.getAttribute('data-lh')||1.25));
+  el.textContent='';
+  lines.forEach((ln,i)=>{
+    const sp=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    sp.setAttribute('x',x);
+    sp.setAttribute('y',y + i*fs*lineH);
+    sp.textContent=ln || (i===0?' ':'');
+    el.appendChild(sp);
   });
-  div.addEventListener('blur', ()=>{
-    if(!textEdit || textEdit.div!==div) return;
-    setTimeout(()=>{
-      if(!textEdit || textEdit.div!==div) return;
-      const ae=document.activeElement;
-      if(ae===div || div.contains(ae)) return;
-      _endTextEdit(true);
-    },0);
-  });
-  // first paint
-  updateLive();
 }
 
-function _startArtisticTextAt(sc, existingTextEl=null){
+function _openTextOverlay(cfg){
+  const ta=document.getElementById('txtin');
   const ff=document.getElementById('tff').value;
   const fs=parseInt(document.getElementById('tfs').value)||16;
   const fw=document.getElementById('tfw').value;
   const ls=parseFloat(document.getElementById('tls').value)||0;
-  const ta=document.getElementById('tta').value||'start';
 
-  let textEl=existingTextEl;
-  const isNew=!textEl;
+  const p=_screenFromSvg(cfg.x,cfg.y);
+  ta.style.display='block';
+  ta.style.left=Math.round(p.left)+'px';
+  ta.style.top=Math.round(p.top)+'px';
+  ta.style.width=Math.max(120,Math.round((cfg.w||220)*zoom))+'px';
+  ta.style.height=Math.max(42,Math.round((cfg.h||40)*zoom))+'px';
+  ta.value=cfg.text||'';
+  ta.dataset.multiline=cfg.multiline?'1':'0';
+  ta.style.fontFamily=ff;
+  ta.style.fontSize=(fs*zoom)+'px';
+  ta.style.fontWeight=fw;
+  ta.style.letterSpacing=(ls*zoom)+'px';
+  ta.style.lineHeight='1.25';
+  ta.style.whiteSpace='pre-wrap';
 
-  if(isNew){
+  textOverlayMode = cfg.kind==='point' ? 'point' : 'edit';
+  textEdit={
+    kind: cfg.kind,
+    x: cfg.x,
+    y: cfg.y,
+    w: cfg.w||220,
+    h: cfg.h||40,
+    el: cfg.el||null,
+    prevText: cfg.prevText||'',
+    isNew: !!cfg.isNew,
+    multiline: !!cfg.multiline
+  };
+
+  setTimeout(()=>{ try{ta.focus(); ta.select();}catch(_e){} },0);
+}
+
+function _commitTextOverlay(commit){
+  const ta=document.getElementById('txtin');
+  if(!textEdit){ta.style.display='none';return;}
+  const draft=ta.value;
+  const val=ta.dataset.multiline==='1'?draft:(draft||'').replace(/\r?\n/g,' ');
+  const ff=document.getElementById('tff').value;
+  const fs=parseInt(document.getElementById('tfs').value)||16;
+  const fw=document.getElementById('tfw').value;
+  const ls=parseFloat(document.getElementById('tls').value)||0;
+  const taAlign=document.getElementById('tta').value||'start';
+
+  if(commit && val.trim()){
     saveState();
-    textEl=mkSVG('text',{
-      x: sc.x,
-      y: sc.y + fs,
-      'font-family': ff,
-      'font-size': fs,
-      'font-weight': fw,
-      'letter-spacing': ls,
-      'text-anchor': ta,
-      fill: gFill()
-    });
-    textEl.textContent='';
-    CONT.appendChild(textEl);
-    act(textEl);
+    if(textEdit.kind==='point'){
+      const el=textEdit.el || mkSVG('text',{});
+      if(!textEdit.el){ CONT.appendChild(el); act(el); }
+      el.setAttribute('x',textEdit.x);
+      el.setAttribute('y',textEdit.y+fs);
+      el.setAttribute('font-family',ff);
+      el.setAttribute('font-size',fs);
+      el.setAttribute('font-weight',fw);
+      el.setAttribute('letter-spacing',ls);
+      el.setAttribute('text-anchor',taAlign);
+      el.setAttribute('fill',gFill());
+      el.setAttribute('data-lh','1.25');
+      _makeTextLines(el,val);
+      selectEl(el);
+    } else {
+      const fo=textEdit.el || mkSVG('foreignObject',{x:textEdit.x,y:textEdit.y,width:textEdit.w,height:textEdit.h});
+      if(!textEdit.el){ CONT.appendChild(fo); act(fo); }
+      fo.setAttribute('x',textEdit.x);
+      fo.setAttribute('y',textEdit.y);
+      fo.setAttribute('width',textEdit.w);
+      fo.setAttribute('height',textEdit.h);
+      let div=fo.querySelector('div');
+      if(!div){
+        div=document.createElementNS('http://www.w3.org/1999/xhtml','div');
+        div.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
+        fo.appendChild(div);
+      }
+      div.style.width='100%';div.style.height='100%';div.style.padding='10px';div.style.boxSizing='border-box';
+      div.style.whiteSpace='pre-wrap';div.style.wordBreak='break-word';div.style.outline='none';
+      div.style.fontFamily=ff;div.style.fontSize=fs+'px';div.style.fontWeight=fw;div.style.letterSpacing=ls+'px';
+      div.style.color=gFill();div.style.textAlign=(taAlign==='middle'?'center':(taAlign==='end'?'right':'left'));
+      div.textContent=val;
+      selectEl(fo);
+    }
+    updateLayers();
+    refreshProps();
+  } else if(commit && textEdit.el && !val.trim()){
+    saveState();
+    textEdit.el.remove();
+    selectEl(null);
     updateLayers();
   }
 
-  // Create in-canvas editor via foreignObject (caret inside the canvas)
-  const x=parseFloat(textEl.getAttribute('x')||sc.x);
-  const y=parseFloat(textEl.getAttribute('y')|| (sc.y+fs));
-  const prevVis=textEl.style.visibility||'visible';
-  const prevText=textEl.textContent||'';
-  textEl.style.visibility='hidden';
-
-  const fo=mkSVG('foreignObject',{
-    x:x,
-    y:y - fs,
-    width: 260,
-    height: Math.max(36, fs*1.8)
-  });
-
-  const div=document.createElementNS('http://www.w3.org/1999/xhtml','div');
-  div.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
-  div.contentEditable='true';
-  div.setAttribute('contenteditable','true');
-  div.spellcheck=false;
-
-  // Visual: free text directly on canvas
-  div.style.width='100%';
-  div.style.height='100%';
-  div.style.padding='2px 4px';
-  div.style.boxSizing='border-box';
-  div.style.borderRadius='4px';
-  div.style.background='transparent';
-  div.style.border='1px dashed rgba(255,255,255,.35)';
-  div.style.backdropFilter='none';
-  div.style.outline='none';
-  div.style.color=textEl.getAttribute('fill')||gFill();
-  div.style.fontFamily=ff;
-  div.style.fontSize=fs+'px';
-  div.style.fontWeight=fw;
-  div.style.letterSpacing=ls+'px';
-  div.style.whiteSpace='nowrap';
-  div.style.lineHeight='1.15';
-  div.style.userSelect='text';
-  div.style.cursor='text';
-  div.textContent=prevText;
-
-  fo.appendChild(div);
-
-  // put the editor right next to the text in the content layer (so transforms/pan/zoom are naturally aligned)
-  CONT.appendChild(fo);
-
-  textEdit={kind:'art', isNew, el:textEl, fo, div, prevText, prevVisibility:prevVis};
-
-  // select the actual SVG text (handles & transforms apply to it)
-  selectEl(textEl);
-  refreshProps();
-  updateTX();
-
-  // focus caret
-  setTimeout(()=>{
-    try{
-      div.focus();
-      // place caret at end
-      const r=document.createRange();
-      r.selectNodeContents(div);
-      r.collapse(false);
-      const sel=window.getSelection();
-      sel.removeAllRanges(); sel.addRange(r);
-    }catch(_e){}
-  },0);
-
-  _bindArtEdit(fo, div, textEl);
+  ta.style.display='none';
+  ta.value='';
+  textEdit=null;
+  textOverlayMode=null;
+  setTool('select');
 }
+
+function startText(e, sc){ startPointText(e, sc); }
 
 function startPointText(e, sc){
-  // Artistic text: click and type in-canvas
-  _startArtisticTextAt(sc, null);
+  _openTextOverlay({kind:'point',x:sc.x,y:sc.y,w:220,h:42,multiline:true,isNew:true,text:''});
 }
 
-function startEditText(textEl, e){
-  // Edit existing artistic <text> in-canvas
-  const sc = svgPt(e);
-  _startArtisticTextAt(sc, textEl);
+function startEditText(targetEl, e){
+  if(!targetEl) return;
+  if(targetEl.tagName==='text'){
+    const b=getBB(targetEl);
+    const txt=Array.from(targetEl.querySelectorAll('tspan')).map(t=>t.textContent||'').join('\n') || targetEl.textContent || '';
+    _openTextOverlay({kind:'point',x:b.x,y:b.y,w:Math.max(220,b.w+40),h:Math.max(44,b.h+20),multiline:true,el:targetEl,text:txt,isNew:false});
+  }else if(targetEl.tagName==='foreignObject'){
+    const x=parseFloat(targetEl.getAttribute('x')||0),y=parseFloat(targetEl.getAttribute('y')||0);
+    const w=parseFloat(targetEl.getAttribute('width')||220),h=parseFloat(targetEl.getAttribute('height')||120);
+    const txt=targetEl.querySelector('div')?.textContent||'';
+    _openTextOverlay({kind:'box',x,y,w,h,multiline:true,el:targetEl,text:txt,isNew:false});
+  }
 }
 
-// --- Text box draft (drag to create) ---
 function startTextBoxDraft(e, sc){
-  // Start drawing a rectangle area (text box)
   textOverlayMode='box';
   textBoxDraft={x0:sc.x,y0:sc.y,x:sc.x,y:sc.y,w:0,h:0};
   const rb=document.getElementById('rubber');
   rb.style.display='block';
-  rb.style.borderStyle='dashed';
-  rb.style.borderWidth='2px';
-  rb.style.borderColor='rgba(255,255,255,.55)';
-  rb.style.background='rgba(255,255,255,.05)';
+  rb.style.border='1px dashed rgba(91,138,245,.85)';
+  rb.style.background='rgba(91,138,245,.1)';
 }
+
 function updateTextBoxDraft(sc){
   if(!textBoxDraft) return;
-  const x=Math.min(textBoxDraft.x0, sc.x);
-  const y=Math.min(textBoxDraft.y0, sc.y);
-  const w=Math.abs(sc.x - textBoxDraft.x0);
-  const h=Math.abs(sc.y - textBoxDraft.y0);
-  textBoxDraft.x=x; textBoxDraft.y=y; textBoxDraft.w=w; textBoxDraft.h=h;
-
-  // show rubber in screen coords
+  const x=Math.min(textBoxDraft.x0, sc.x),y=Math.min(textBoxDraft.y0, sc.y);
+  const w=Math.abs(sc.x-textBoxDraft.x0),h=Math.abs(sc.y-textBoxDraft.y0);
+  textBoxDraft={...textBoxDraft,x,y,w,h};
   const cr=CW.getBoundingClientRect(),svgr=SVGEL.getBoundingClientRect();
   const offX=svgr.left-cr.left,offY=svgr.top-cr.top;
   const p=toScreen(x,y,offX,offY);
   const rb=document.getElementById('rubber');
-  rb.style.left=p.x+'px';
-  rb.style.top=p.y+'px';
-  rb.style.width=Math.max(6, w*zoom)+'px';
-  rb.style.height=Math.max(6, h*zoom)+'px';
-  rb.textContent = Math.max(1,Math.round(w))+'×'+Math.max(1,Math.round(h));
-  rb.style.color='rgba(255,255,255,.85)';
-  rb.style.fontFamily='DM Sans, sans-serif';
-  rb.style.fontSize='12px';
+  rb.style.left=p.x+'px';rb.style.top=p.y+'px';
+  rb.style.width=Math.max(8,w*zoom)+'px';rb.style.height=Math.max(8,h*zoom)+'px';
+  rb.textContent=`${Math.round(w)} × ${Math.round(h)}`;
   rb.style.padding='6px';
 }
+
 function openTextBoxEditor(){
   if(!textBoxDraft) return;
-  const {x,y,w,h}=textBoxDraft;
   const rb=document.getElementById('rubber');
   rb.style.display='none';
-
-  if(w<8 || h<8){ textBoxDraft=null; return; }
-
-  saveState();
-
-  const ff=document.getElementById('tff').value;
-  const fs=parseInt(document.getElementById('tfs').value)||16;
-  const fw=document.getElementById('tfw').value;
-  const ls=parseFloat(document.getElementById('tls').value)||0;
-  const ta=document.getElementById('tta').value||'start';
-
-  const fo=mkSVG('foreignObject',{x,y,width:w,height:h});
-  const div=document.createElementNS('http://www.w3.org/1999/xhtml','div');
-  div.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
-  div.contentEditable='true';
-  div.setAttribute('contenteditable','true');
-  div.spellcheck=false;
-
-  div.style.width='100%';
-  div.style.height='100%';
-  div.style.boxSizing='border-box';
-  div.style.padding='10px';
-  div.style.borderRadius='12px';
-  div.style.background='transparent';
-  div.style.border='1px dashed rgba(255,255,255,.35)';
-  div.style.outline='none';
-
-  div.style.fontFamily=ff;
-  div.style.fontSize=fs+'px';
-  div.style.fontWeight=fw;
-  div.style.letterSpacing=ls+'px';
-  div.style.lineHeight='1.25';
-  div.style.whiteSpace='pre-wrap';
-  div.style.wordBreak='break-word';
-  div.style.color=gFill();
-  div.style.textAlign=(ta==='middle'?'center':(ta==='end'?'right':'left'));
-
-  div.textContent='';
-
-  fo.appendChild(div);
-  CONT.appendChild(fo);
-  act(fo);
-  updateLayers();
-  selectEl(fo);
-  refreshProps();
-  updateTX();
-
-  textEdit={kind:'box',isNew:true,el:fo,fo:null,div,prevText:'',prevVisibility:''};
-
-  // Keys: Esc cancels (removes box if new), Ctrl+Enter commits edit mode.
-  div.addEventListener('keydown',(e)=>{
-    if(e.key==='Escape'){ e.preventDefault(); _endTextEdit(false); }
-    if((e.key==='Enter' && (e.ctrlKey||e.metaKey))){ e.preventDefault(); _endTextEdit(true); }
-    // Keep selection in sync while typing
-    requestAnimationFrame(()=>{ if(selectedEl===fo) updateTX(); });
-  });
-  div.addEventListener('input',()=>requestAnimationFrame(()=>{ if(selectedEl===fo) updateTX(); }));
-  div.addEventListener('blur', ()=>{
-    if(!textEdit || textEdit.div!==div) return;
-    setTimeout(()=>{
-      if(!textEdit || textEdit.div!==div) return;
-      const ae=document.activeElement;
-      if(ae===div || div.contains(ae)) return;
-      _endTextEdit(true);
-    },0);
-  });
-
-  setTimeout(()=>{ try{div.focus();}catch(_e){} },0);
-
-  textOverlayMode=null;
+  const {x,y,w,h}=textBoxDraft;
   textBoxDraft=null;
+  if(w<12||h<12){textOverlayMode=null;return;}
+  _openTextOverlay({kind:'box',x,y,w,h,multiline:true,isNew:true,text:''});
 }
 
-function commitText(){
-  // backward compat: old textarea calls this; now commit active in-canvas edit
-  _endTextEdit(true);
-}
+function commitText(){ _commitTextOverlay(true); }
 function txtKey(e){
-  if(e.key==='Escape'){ _endTextEdit(false); }
+  if(e.key==='Escape'){ e.preventDefault(); _commitTextOverlay(false); }
+  if(e.key==='Enter' && ((e.ctrlKey||e.metaKey) || (textEdit && textEdit.kind==='point' && !e.shiftKey))){
+    e.preventDefault(); _commitTextOverlay(true);
+  }
 }
-
-// Keep function for callers; foreignObject editing follows zoom/pan naturally
-function _repositionTextOverlay(){ /* no-op with in-canvas editing */ }
+function _repositionTextOverlay(){
+  if(!textEdit) return;
+  const ta=document.getElementById('txtin');
+  if(ta.style.display==='none') return;
+  const p=_screenFromSvg(textEdit.x,textEdit.y);
+  ta.style.left=Math.round(p.left)+'px';
+  ta.style.top=Math.round(p.top)+'px';
+}
 
 /* ===== END TEXT TOOL ===== */
 

@@ -11,7 +11,7 @@
 
 <!-- TOPBAR -->
 <div id="topbar">
-  <div class="logo"><div class="logo-icon">⬡</div>VectoFlow</div>
+  <div class="logo"><div class="logo-icon">⬡</div><div><strong>VectoFlow Studio</strong><small>Editor vetorial</small></div></div>
   <div class="tb-sep"></div>
   <button class="tb-btn" title="Novo" onclick="newCanvas()">Novo</button>
   <button class="tb-btn" title="Abrir" onclick="openFile()">Abrir</button>
@@ -62,6 +62,7 @@
   <div class="tb-sep"></div>
   <button class="tb-btn" id="snap-tb" title="Ativar/desativar snap" onclick="toggleSnap()">⊞ Snap</button>
   <button class="tb-btn" id="grid-tb" title="Mostrar/ocultar grade" onclick="toggleGridVis()">⊟ Grade</button>
+  <button class="tb-btn" title="Centralizar artboard" onclick="fitCanvas()">⤢ Centralizar</button>
   <div class="spacer"></div>
   <button class="tb-btn" title="Agrupar seleção" onclick="groupSel()">Agrupar</button>
   <button class="tb-btn" title="Desagrupar seleção" onclick="ungroupSel()">Separar</button>
@@ -216,7 +217,11 @@
     <div class="ps" id="text-sec" style="display:none">
       <div class="pt">Tipografia</div>
       <div class="pr" style="margin-bottom:8px">
-        <span style="font-size:11px;color:var(--text2)">Use a ferramenta <strong>Texto (T)</strong>: clique para texto livre ou arraste para criar uma caixa de texto.</span>
+        <span style="font-size:11px;color:var(--text2)">Texto refatorado: clique para criar texto, arraste para caixa, duplo clique para editar.</span>
+      </div>
+      <div class="g2" style="margin-bottom:8px">
+        <button class="ib" onclick="setTool('text')">Novo texto (T)</button>
+        <button class="ib" onclick="setTool('select')">Selecionar (V)</button>
       </div>
       <div class="pr" style="margin-bottom:8px">
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer">
