@@ -74,6 +74,64 @@ function hex(c){
 }
 const TOOL_NAMES={select:'Selecionar',move:'Mover',rect:'Retângulo',rrect:'Ret. Arredondado',ellipse:'Elipse',line:'Linha',polyline:'Polilinha',polygon:'Polígono',star:'Estrela',path:'Lápis',text:'Texto'};
 
+
+const FREE_ICON_SET=[
+  {name:'home',vb:'0 0 24 24',paths:['M3 10.5 12 3l9 7.5','M5.5 9.5V21h13V9.5']},
+  {name:'search',vb:'0 0 24 24',paths:['M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16','m21 21-4.3-4.3']},
+  {name:'sparkles',vb:'0 0 24 24',paths:['M12 3l1.9 3.9L18 8.8l-4.1 1.8L12 14.5l-1.9-3.9L6 8.8l4.1-1.9z','M5 16l.9 1.9L8 18.9 5.9 20 5 22l-.9-2-2.1-1.1L4.1 18z','M19 14l1 2 2 1-2 1-1 2-1-2-2-1 2-1z']},
+  {name:'heart',vb:'0 0 24 24',paths:['m12 20.5-1.2-1.1C5.4 14.4 2 11.3 2 7.5A4.5 4.5 0 0 1 6.5 3c2 0 3.1.9 4.1 2 1-1.1 2.1-2 4.1-2A4.5 4.5 0 0 1 19 7.5c0 3.8-3.4 6.9-8.8 11.9z']},
+  {name:'camera',vb:'0 0 24 24',paths:['M4 7h3l1.5-2h7L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2','M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8']},
+  {name:'bolt',vb:'0 0 24 24',paths:['M13 2 4 14h6l-1 8 9-12h-6z']},
+  {name:'palette',vb:'0 0 24 24',paths:['M12 3a9 9 0 1 0 0 18h1.5a2.5 2.5 0 0 0 0-5H11a3 3 0 0 1 0-6h5a4 4 0 0 0 0-8z','M7 11h.01','M8 7h.01','M12 6h.01','M16 7h.01']},
+  {name:'moon',vb:'0 0 24 24',paths:['M21 12.6A9 9 0 1 1 11.4 3a7 7 0 1 0 9.6 9.6z']},
+  {name:'sun',vb:'0 0 24 24',paths:['M12 4V2','M12 22v-2','M4.93 4.93 3.5 3.5','M20.5 20.5 19.07 19.07','M4 12H2','M22 12h-2','M4.93 19.07 3.5 20.5','M20.5 3.5l-1.43 1.43','M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10']},
+  {name:'globe',vb:'0 0 24 24',paths:['M3 12h18','M12 3a15.3 15.3 0 0 1 4 9 15.3 15.3 0 0 1-4 9 15.3 15.3 0 0 1-4-9 15.3 15.3 0 0 1 4-9','M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18']},
+  {name:'message',vb:'0 0 24 24',paths:['M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z']},
+  {name:'briefcase',vb:'0 0 24 24',paths:['M3 8h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z','M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2']}
+];
+
+function _iconSvgMarkup(icon){
+  return `<svg viewBox="${icon.vb}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icon.paths.map(d=>`<path d="${d}"></path>`).join('')}</svg>`;
+}
+
+function renderIconLibrary(query=''){
+  const grid=document.getElementById('icon-grid');
+  if(!grid) return;
+  const q=(query||'').trim().toLowerCase();
+  const items=FREE_ICON_SET.filter(ic=>!q||ic.name.includes(q));
+  grid.innerHTML='';
+  items.forEach(icon=>{
+    const btn=document.createElement('button');
+    btn.className='icon-btn';
+    btn.title='Inserir '+icon.name;
+    btn.innerHTML=_iconSvgMarkup(icon);
+    btn.addEventListener('click',()=>insertIcon(icon.name));
+    grid.appendChild(btn);
+  });
+}
+function filterIcons(q){renderIconLibrary(q);}
+
+function insertIcon(name){
+  const icon=FREE_ICON_SET.find(i=>i.name===name);
+  if(!icon) return;
+  saveState();
+  const w=(parseInt(document.getElementById('cw').value)||800);
+  const h=(parseInt(document.getElementById('ch').value)||600);
+  const size=Math.max(36,Math.round(Math.min(w,h)*0.12));
+  const g=mkSVG('g',{});
+  g.setAttribute('transform',`translate(${Math.round(w/2-size/2)} ${Math.round(h/2-size/2)})`);
+  const vb=icon.vb.split(' ').map(Number);
+  const scale=size/(vb[2]||24);
+  icon.paths.forEach(d=>{
+    const p=mkSVG('path',{d,fill:'none',stroke:gStroke()==='none'?'#111111':gStroke(),'stroke-width':Math.max(1.5,2/scale),'stroke-linecap':'round','stroke-linejoin':'round'});
+    p.removeAttribute('data-s');
+    p.removeAttribute('id');
+    p.setAttribute('transform',`scale(${scale})`);
+    g.appendChild(p);
+  });
+  CONT.appendChild(g);act(g);selectEl(g);updateLayers();updateTX();
+}
+
 // ===== TOOLS =====
 function setTool(t){
   finishPoly();finishPath();
@@ -1304,6 +1362,7 @@ setTimeout(()=>{
   txt.textContent='VectoFlow Editor';CONT.appendChild(txt);act(txt);
   const ln=mkSVG('line',{x1:60,y1:360,x2:700,y2:360,stroke:'#ccc','stroke-width':'1.5','stroke-dasharray':'8,4'});CONT.appendChild(ln);act(ln);
   updateLayers();
+  renderIconLibrary();
   resizeTX();
 },150);
 
