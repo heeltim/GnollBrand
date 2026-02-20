@@ -115,6 +115,8 @@
     onwheel="cwWheel(event)"
     ondblclick="cwDbl(event)"
     oncontextmenu="return false">
+    <div class="workspace-label">Workspace infinito</div>
+    <div class="artboard-chip">Artboard</div>
     <div id="canvas-viewport">
       <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg" width="800" height="600">
         <defs id="svg-defs"></defs>
@@ -258,6 +260,15 @@
       <div class="pt">Polígono / Estrela</div>
       <div class="pr"><span class="pl">Lados</span><input type="number" class="pi" id="poly-n" value="6" min="3" max="32"></div>
       <div class="pr"><span class="pl">Inner r.</span><input type="number" class="pi" id="star-r" value="0.45" min="0.1" max="0.95" step="0.05"></div>
+    </div>
+
+    <!-- Icon Library -->
+    <div class="ps">
+      <div class="pt">Ícones grátis (Lucide)</div>
+      <div class="pr">
+        <input class="pi" id="icon-search" placeholder="Buscar ícone..." oninput="filterIcons(this.value)">
+      </div>
+      <div id="icon-grid" class="icon-grid"></div>
     </div>
 
     <!-- Layers -->
